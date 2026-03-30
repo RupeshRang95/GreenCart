@@ -13,6 +13,16 @@ const Auth: React.FC = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const authErrorMessage = (raw: string) => {
+    if (/invalid api key/i.test(raw)) {
+      return "Supabase API key is invalid. Set VITE_SUPABASE_PUBLISHABLE_KEY in .env (this is not your login password).";
+    }
+    if (/invalid login credentials/i.test(raw)) {
+      return "Invalid email or password.";
+    }
+    return raw;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabaseConfigured) {
@@ -31,11 +41,11 @@ const Auth: React.FC = () => {
           emailRedirectTo: window.location.origin,
         },
       });
-      if (error) setError(error.message);
+      if (error) setError(authErrorMessage(error.message));
       else navigate("/");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      if (error) setError(authErrorMessage(error.message));
       else navigate("/");
     }
     setLoading(false);

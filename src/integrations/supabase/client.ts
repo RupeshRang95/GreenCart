@@ -6,7 +6,15 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const FALLBACK_URL = "https://example.supabase.co";
 const FALLBACK_KEY = "public-anon-key";
-export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+const looksLikeSupabaseUrl =
+  typeof SUPABASE_URL === "string" &&
+  SUPABASE_URL.startsWith("https://") &&
+  SUPABASE_URL.includes(".supabase.co");
+const looksLikePublishableKey =
+  typeof SUPABASE_PUBLISHABLE_KEY === "string" &&
+  SUPABASE_PUBLISHABLE_KEY.startsWith("eyJ") &&
+  !SUPABASE_PUBLISHABLE_KEY.includes("YOUR_");
+export const supabaseConfigured = Boolean(looksLikeSupabaseUrl && looksLikePublishableKey);
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
