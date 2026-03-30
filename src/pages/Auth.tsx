@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { TreePine, AtSign, KeyRound, UserRound, MoveRight, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -15,6 +15,10 @@ const Auth: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabaseConfigured) {
+      setError("Missing Supabase environment variables. Copy .env.example to .env and fill values.");
+      return;
+    }
     setLoading(true);
     setError("");
 
