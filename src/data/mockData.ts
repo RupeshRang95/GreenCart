@@ -110,6 +110,8 @@ export const weeklyChallenge = {
 // ── Trip / Receipt Data ──
 export interface ScannedItem {
   id: string;
+  /** Open Food Facts or store barcode when scanned */
+  barcode?: string;
   name: string;
   brand?: string;
   category: "fruit" | "vegetable" | "meat" | "dairy" | "grain" | "packaged" | "bakery";

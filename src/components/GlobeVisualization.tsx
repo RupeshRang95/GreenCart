@@ -4,9 +4,11 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { userLocation } from "@/data/mockData";
 
+type TransportKey = "ship" | "truck" | "air" | "rail";
+
 interface GlobeProps {
   origin: { lat: number; lng: number; country: string; flag: string };
-  transport: "ship" | "truck" | "air" | "rail";
+  transport: TransportKey;
   distance: number;
 }
 
@@ -165,18 +167,68 @@ const PulsingDot: React.FC<{ position: THREE.Vector3; color: string; label?: str
   );
 };
 
+const TransportMesh: React.FC<{ transport: TransportKey; color: string }> = ({ transport, color }) => {
+  switch (transport) {
+    case "air":
+      return (
+        <group rotation={[0, 0, Math.PI / 2]}>
+          <mesh>
+            <coneGeometry args={[0.022, 0.07, 8]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+          <mesh position={[0, 0, 0.04]}>
+            <boxGeometry args={[0.05, 0.02, 0.06]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+        </group>
+      );
+    case "ship":
+      return (
+        <mesh>
+          <boxGeometry args={[0.08, 0.025, 0.04]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      );
+    case "rail":
+      return (
+        <group>
+          <mesh>
+            <boxGeometry args={[0.07, 0.03, 0.04]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+          <mesh position={[0.03, -0.02, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.008, 8]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+        </group>
+      );
+    case "truck":
+    default:
+      return (
+        <group>
+          <mesh>
+            <boxGeometry args={[0.06, 0.028, 0.035]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+          <mesh position={[-0.035, -0.015, 0]}>
+            <boxGeometry args={[0.02, 0.02, 0.035]} />
+            <meshBasicMaterial color={color} />
+          </mesh>
+        </group>
+      );
+  }
+};
+
 // ── Animated Arc with Vehicle ──
 const AnimatedArc: React.FC<{
   start: THREE.Vector3;
   end: THREE.Vector3;
   color: string;
   altitude: number;
-  vehicleEmoji: string;
-}> = ({ start, end, color, altitude }) => {
+  transport: TransportKey;
+}> = ({ start, end, color, altitude, transport }) => {
   const arcPoints = useMemo(() => createArc(start, end, altitude, 80), [start, end, altitude]);
-  const tubeRef = useRef<THREE.Mesh>(null);
-  const vehicleRef = useRef<THREE.Mesh>(null);
-  const trailRef = useRef<THREE.Mesh>(null);
+  const vehicleRef = useRef<THREE.Group>(null);
 
   const curve = useMemo(() => new THREE.CatmullRomCurve3(arcPoints), [arcPoints]);
 
@@ -185,7 +237,6 @@ const AnimatedArc: React.FC<{
     if (vehicleRef.current) {
       const pos = curve.getPointAt(t);
       vehicleRef.current.position.copy(pos);
-      // Look along the path
       const lookAt = curve.getPointAt(Math.min(t + 0.02, 1));
       vehicleRef.current.lookAt(lookAt);
     }
@@ -195,20 +246,16 @@ const AnimatedArc: React.FC<{
 
   return (
     <group>
-      {/* Arc line */}
       <mesh geometry={tubeGeometry}>
         <meshBasicMaterial color={color} transparent opacity={0.6} />
       </mesh>
-      {/* Dashed outer glow */}
       <mesh geometry={tubeGeometry}>
-        <meshBasicMaterial color={color} transparent opacity={0.15} />
+        <meshBasicMaterial color={color} transparent opacity={0.12} />
       </mesh>
-      {/* Vehicle (glowing sphere) */}
-      <mesh ref={vehicleRef}>
-        <sphereGeometry args={[0.035, 12, 12]} />
-        <meshBasicMaterial color={color} />
-        <pointLight color={color} intensity={1} distance={0.4} />
-      </mesh>
+      <group ref={vehicleRef}>
+        <TransportMesh transport={transport} color={color} />
+        <pointLight color={color} intensity={1.2} distance={0.55} />
+      </group>
     </group>
   );
 };
@@ -219,7 +266,7 @@ const GlobeScene: React.FC<{
   destPos: THREE.Vector3;
   arcColor: string;
   altitude: number;
-  transport: string;
+  transport: TransportKey;
 }> = ({ originPos, destPos, arcColor, altitude, transport }) => {
   const groupRef = useRef<THREE.Group>(null);
 
@@ -238,8 +285,6 @@ const GlobeScene: React.FC<{
     }
   });
 
-  const vehicleEmoji = { ship: "🚢", truck: "🚛", air: "✈️", rail: "🚂" }[transport] || "🚛";
-
   return (
     <group ref={groupRef}>
       <GlobeMesh />
@@ -248,7 +293,7 @@ const GlobeScene: React.FC<{
       <Continents />
       <PulsingDot position={originPos} color={arcColor} />
       <PulsingDot position={destPos} color="#4ADE80" />
-      <AnimatedArc start={originPos} end={destPos} color={arcColor} altitude={altitude} vehicleEmoji={vehicleEmoji} />
+      <AnimatedArc start={originPos} end={destPos} color={arcColor} altitude={altitude} transport={transport} />
     </group>
   );
 };
@@ -311,7 +356,9 @@ const GlobeVisualization: React.FC<GlobeProps> = ({ origin, transport, distance 
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <div className="text-[11px] text-foreground-secondary">Waterloo, ON</div>
+            <div className="text-[11px] text-foreground-secondary">
+              {userLocation.city}, {userLocation.province}
+            </div>
             <div className="text-[10px] text-foreground-tertiary">You</div>
           </div>
           <span className="text-lg">📍</span>
