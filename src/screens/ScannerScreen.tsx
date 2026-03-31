@@ -72,7 +72,11 @@ import { isLocalProduct } from "@/services/openFoodFacts";
 const BarcodeScannerModal = lazy(
   () => import("@/components/BarcodeScannerModal"),
 );
+const ReceiptCameraModal = lazy(
+  () => import("@/components/ReceiptScannerModal"),
+);
 const ScanCelebration = lazy(() => import("@/components/ScanCelebration"));
+
 
 type ScanPhase = "idle" | "processing" | "results" | "history";
 
@@ -166,6 +170,9 @@ function formatGrade(score: number): string {
 
 // ─────────────────────────────────────────────────────────────────────────────
 const ScannerScreen: React.FC = () => {
+  const [capturedImage, setCapturedImage] = useState<File | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [processingStep, setProcessingStep] = useState(0);
   const [processingDetail, setProcessingDetail] = useState("");
@@ -267,14 +274,12 @@ const ScannerScreen: React.FC = () => {
       if (file) toast.error("Please choose an image (JPG, PNG, or HEIC).");
       return;
     }
-    await runPipeline(() =>
-      runReceiptPipeline(file, {
-        onStep: (step, detail) => {
-          setProcessingStep(step);
-          setProcessingDetail(detail);
-        },
-      }),
-    );
+    if (!file || !file.type.startsWith("image/")) {
+      if (file) toast.error("Please choose an image.");
+      return;
+    }
+    setCapturedImage(file);
+    setShowPreview(true);
   };
 
   const submitPaste = async () => {
@@ -475,6 +480,25 @@ const ScannerScreen: React.FC = () => {
       </Suspense>
 
       <Suspense fallback={null}>
+        <ReceiptCameraModal
+          open={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          onCapture={(file) => {
+            setCameraOpen(false);
+
+            runPipeline(() =>
+              runReceiptPipeline(file, {
+                onStep: (step, detail) => {
+                  setProcessingStep(step);
+                  setProcessingDetail(detail);
+                },
+              }),
+            );
+          }}
+        />
+      </Suspense>
+
+      <Suspense fallback={null}>
         {celebration && (
           <ScanCelebration
             breakdown={celebration.breakdown}
@@ -539,7 +563,7 @@ const ScannerScreen: React.FC = () => {
                 <div className="flex gap-2.5 w-full">
                   <button
                     type="button"
-                    onClick={() => openFilePicker("environment")}
+                    onClick={() => setCameraOpen(true)}
                     className="flex-1 py-3 rounded-2xl bg-primary text-primary-foreground font-display font-semibold text-[13px] flex items-center justify-center gap-2 transition-transform active:scale-95"
                   >
                     <Aperture size={15} /> Camera
