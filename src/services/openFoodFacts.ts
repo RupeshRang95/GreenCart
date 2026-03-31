@@ -29,7 +29,8 @@ export interface OFFSearchHit {
 
 /** Open Food Facts asks for a descriptive User-Agent on all API calls. */
 const OFF_HEADERS: HeadersInit = {
-  "User-Agent": "GreenCart/1.0 (https://github.com/greencart; contact: app@greencart.local)",
+  "User-Agent":
+    "GreenCart/1.0 (https://github.com/greencart; contact: app@greencart.local)",
   Accept: "application/json",
 };
 
@@ -37,7 +38,9 @@ function stripLang(tag: string): string {
   return tag.replace(/^[a-z]{2}:/, "").replace(/-/g, " ");
 }
 
-export function countryFromProduct(p: OFFProduct | OFFSearchHit): string | undefined {
+export function countryFromProduct(
+  p: OFFProduct | OFFSearchHit,
+): string | undefined {
   const tags = p.countries_tags?.[0] ?? p.countries?.split(",")[0]?.trim();
   if (tags) return stripLang(tags);
   return undefined;
@@ -55,11 +58,21 @@ const OFF_FOOD_HOST = "https://world.openfoodfacts.org";
  * any of these, it is not food and should be rejected.
  */
 const NON_FOOD_CATEGORY_PREFIXES = [
-  "en:cosmetics", "en:beauty-products", "en:personal-care-products",
-  "en:hair-care", "en:skin-care", "en:oral-hygiene",
-  "en:household-products", "en:cleaning-products", "en:laundry-products",
-  "en:paper-products", "en:office-products", "en:clothing",
-  "en:electronics", "en:automotive", "en:pet-supplies",
+  "en:cosmetics",
+  "en:beauty-products",
+  "en:personal-care-products",
+  "en:hair-care",
+  "en:skin-care",
+  "en:oral-hygiene",
+  "en:household-products",
+  "en:cleaning-products",
+  "en:laundry-products",
+  "en:paper-products",
+  "en:office-products",
+  "en:clothing",
+  "en:electronics",
+  "en:automotive",
+  "en:pet-supplies",
   "en:dietary-supplements",
 ];
 
@@ -73,12 +86,24 @@ export function isFoodProduct(p: OFFProduct | OFFSearchHit): boolean {
   // Reject if any non-food category prefix matches
   const lower = tags.map((t) => t.toLowerCase());
   return !NON_FOOD_CATEGORY_PREFIXES.some((prefix) =>
-    lower.some((t) => t.startsWith(prefix))
+    lower.some((t) => t.startsWith(prefix)),
   );
 }
 
+export function isLocalProduct(
+  p: OFFProduct | OFFSearchHit | import("@/data/mockData").ScannedItem,
+  userCountry: string,
+): boolean {
+  if (!("origins_tags" in p)) return false;
+
+  const origins = (p.origins_tags ?? []).map(stripLang); // ["en:canada"] → ["canada"]
+  return origins.includes(userCountry.toLowerCase());
+}
+
 /** Single lookup by exact GTIN — food database only. */
-export async function fetchOffProductOnce(clean: string): Promise<OFFProduct | null> {
+export async function fetchOffProductOnce(
+  clean: string,
+): Promise<OFFProduct | null> {
   const d = clean.replace(/\D/g, "");
   if (d.length < 8) return null;
   try {
@@ -91,7 +116,9 @@ export async function fetchOffProductOnce(clean: string): Promise<OFFProduct | n
       const product = data.product as OFFProduct;
       return isFoodProduct(product) ? product : null;
     }
-  } catch { /* network */ }
+  } catch {
+    /* network */
+  }
   return null;
 }
 
@@ -100,7 +127,10 @@ export async function fetchOffProductOnce(clean: string): Promise<OFFProduct | n
  * Also tries stripping leading brand words (e.g. "President's Choice Yogurt" → "Yogurt")
  * to improve match rate for store-brand products not in OFF under their full name.
  */
-export async function searchProducts(query: string, signal?: AbortSignal): Promise<OFFSearchHit[]> {
+export async function searchProducts(
+  query: string,
+  signal?: AbortSignal,
+): Promise<OFFSearchHit[]> {
   const trimmed = query.trim().slice(0, 80);
   if (!trimmed) return [];
 
@@ -126,7 +156,9 @@ export async function searchProducts(query: string, signal?: AbortSignal): Promi
         const products = (dataCa.products ?? []) as OFFSearchHit[];
         if (products.length > 0) return products;
       }
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
 
     // Global fallback
     try {
@@ -136,14 +168,18 @@ export async function searchProducts(query: string, signal?: AbortSignal): Promi
         const products = (data.products ?? []) as OFFSearchHit[];
         if (products.length > 0) return products;
       }
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   return [];
 }
 
 /** Map OFF categories_tags to our ScannedItem category. */
-export function categoryFromOffTags(tags: string[] | undefined): import("@/data/mockData").ScannedItem["category"] {
+export function categoryFromOffTags(
+  tags: string[] | undefined,
+): import("@/data/mockData").ScannedItem["category"] {
   const t = (tags ?? []).join(" ").toLowerCase();
   if (/(meat|fish|seafood|salmon|poultry|beef|pork)/.test(t)) return "meat";
   if (/(dairy|milk|cheese|yogurt|egg|butter)/.test(t)) return "dairy";

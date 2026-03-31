@@ -7,7 +7,6 @@ interface BarcodeScannerModalProps {
   onClose: () => void;
   onDetected: (barcode: string) => void;
 }
-
 const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   open,
   onClose,
@@ -15,7 +14,9 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
-  const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
+  const [status, setStatus] = useState<"starting" | "scanning" | "error">(
+    "starting",
+  );
   const [errorMsg, setErrorMsg] = useState("");
   const detectedRef = useRef(false);
 
@@ -40,27 +41,38 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     readerRef.current = reader;
 
     const start = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setErrorMsg("Camera not supported on this device or browser.");
+        setStatus("error");
+        return;
+      }
+
       try {
         // Get the back camera specifically
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-        const backCamera =
-          devices.find((d) =>
-            /back|rear|environment/i.test(d.label)
-          ) ?? devices[devices.length - 1];
+        let deviceId: string | undefined;
 
-        const deviceId = backCamera?.deviceId ?? undefined;
-
-        setStatus("scanning");
+        try {
+          const devices = await readerRef.current.listVideoInputDevices?.();
+          if (devices && devices.length > 0) {
+            const backCamera = devices.find((d) =>
+              /back|rear|environment/i.test(d.label),
+            );
+            deviceId = backCamera?.deviceId ?? devices[0].deviceId;
+          } else {
+            deviceId = undefined; // default camera
+          }
+        } catch {
+          deviceId = undefined; // fallback for mobile
+        }
 
         await reader.decodeFromVideoDevice(
-          deviceId,
+          deviceId, // undefined on mobile, specific deviceId on desktop
           videoRef.current!,
           (result, err) => {
             if (result && !detectedRef.current) {
               detectedRef.current = true;
               const code = result.getText().replace(/\D/g, "");
               if (code.length >= 6) {
-                // Brief flash feedback before closing
                 setTimeout(() => {
                   stopScanner();
                   onDetected(code);
@@ -69,14 +81,15 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               }
             }
             if (err && !(err instanceof NotFoundException)) {
-              // Real error (not just "no barcode found this frame")
               console.warn("Scanner error:", err);
             }
-          }
+          },
         );
       } catch (e) {
         const msg =
-          e instanceof Error ? e.message : "Camera access denied or not available.";
+          e instanceof Error
+            ? e.message
+            : "Camera access denied or not available.";
         setErrorMsg(msg);
         setStatus("error");
       }
@@ -99,13 +112,15 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 z-10">
         <div>
-          <p className="text-white font-display font-bold text-[17px]">Scan Barcode</p>
+          <p className="text-white font-display font-bold text-[17px]">
+            Scan Barcode
+          </p>
           <p className="text-white/50 text-[12px]">
             {status === "scanning"
               ? "Point camera at the barcode on the package"
               : status === "starting"
-              ? "Starting camera…"
-              : "Camera error"}
+                ? "Starting camera…"
+                : "Camera error"}
           </p>
         </div>
         <button
@@ -132,10 +147,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         {status === "scanning" && (
           <div className="relative z-10 flex flex-col items-center">
             {/* Targeting box */}
-            <div
-              className="relative"
-              style={{ width: 260, height: 160 }}
-            >
+            <div className="relative" style={{ width: 260, height: 160 }}>
               {/* Corner brackets */}
               {[
                 "top-0 left-0",
@@ -161,7 +173,9 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
             <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-black/50">
               <Zap size={12} className="text-[#4ade80]" />
-              <span className="text-white/80 text-[12px]">Auto-detects UPC & EAN barcodes</span>
+              <span className="text-white/80 text-[12px]">
+                Auto-detects UPC & EAN barcodes
+              </span>
             </div>
           </div>
         )}
@@ -181,8 +195,12 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               <AlertCircle size={28} className="text-red-400" />
             </div>
             <div>
-              <p className="text-white font-semibold text-[15px] mb-1">Camera unavailable</p>
-              <p className="text-white/50 text-[12px] leading-relaxed">{errorMsg}</p>
+              <p className="text-white font-semibold text-[15px] mb-1">
+                Camera unavailable
+              </p>
+              <p className="text-white/50 text-[12px] leading-relaxed">
+                {errorMsg}
+              </p>
             </div>
             <p className="text-white/40 text-[12px]">
               Type the barcode digits manually instead.
